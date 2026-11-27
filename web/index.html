@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#100f0e">
+  <title>Blacktable Studio by Brian</title>
+  <link rel="icon" type="image/png" href="/blacktable-icon.png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <div class="wordmark">
+          <strong>Blacktable</strong>
+          <span>Studio <span class="brand-dot">·</span> By Brian</span>
+        </div>
+      </div>
+      <div class="local"><span aria-hidden="true"></span> Local processing</div>
+    </div>
+  </header>
+  <main>
+    <div class="intro">
+      <div class="intro-copy">
+        <h1>Stem splitter<span>.</span></h1>
+        <p>Separate a mix into stems. Listen to each one and export the tracks you need.</p>
+      </div>
+    </div>
+    <div class="layout">
+      <section class="panel">
+        <h2>Add audio</h2>
+        <label class="drop" id="drop" for="files">
+          <span class="upload-icon" aria-hidden="true"><i></i></span>
+          <strong>Drop audio files here</strong>
+          <span>or <b>browse files</b></span>
+          <small>WAV, MP3, FLAC, M4A and more · 250 MB per file</small>
+        </label>
+        <input id="files" type="file" multiple accept="audio/*,.flac,.m4a,.aiff,.opus" aria-label="Choose audio files">
+        <ul id="selection"></ul>
+      </section>
+      <section class="panel settings">
+        <h2>Split settings</h2>
+        <label for="mode">Separation mode</label>
+        <select id="mode">
+          <option value="four">Four stems</option>
+          <option value="two">Vocals + instrumental</option>
+          <option value="quick">Quick center + sides</option>
+        </select>
+        <p id="details"></p>
+        <label class="check"><input id="preview" type="checkbox"> First 30 seconds only</label>
+        <button id="submit" disabled>Split audio <span aria-hidden="true">→</span></button>
+      </section>
+    </div>
+    <p id="status" role="status"></p>
+    <section class="panel queue">
+      <div class="queue-heading"><h2>Job queue</h2><span id="count"></span></div>
+      <div id="jobs">
+        <div class="empty">
+          <span class="empty-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+          <p>Your split tracks will appear here.</p>
+        </div>
+      </div>
+    </section>
+    <footer>Download your stems before closing Blacktable. Jobs are kept for this session.</footer>
+  </main>
+</body>
+</html>
