@@ -4,9 +4,9 @@ Blacktable is a local audio stem splitter for Windows 11 x64. Add a batch of aud
 
 ## Install on Windows 11
 
-1. Run **Blacktable-Studio-0.1.1-Windows-x64-Setup.exe**.
+1. Run **Blacktable-Studio-0.1.2-Windows-x64-Setup.exe**. Close any open copy of Blacktable before updating.
 2. Open **Blacktable Studio** from Start. The installed `Blacktable Studio.exe` opens the workstation in your default browser.
-3. Select your audio files, choose a separation mode, and click **Split audio**. Download the stems before closing the Blacktable window.
+3. Select your audio files, choose a separation mode, and click **Split full tracks**. Download the stems before closing the Blacktable window.
 
 The installer contains its own Python, FFmpeg, and AI runtime. The first AI split downloads the official HTDemucs model into `%LOCALAPPDATA%\Blacktable Studio\models`. Audio is processed on the device. Once the model is cached, splitting works offline. If the AI engine reports a missing Windows library, install the latest [Microsoft Visual C++ Redistributable (x64)](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) and retry. Diagnostics are in `%LOCALAPPDATA%\Blacktable Studio\blacktable.log`.
 
@@ -44,7 +44,7 @@ python windows/build.py
 The build produces the setup executable and its SHA-256 checksum in `dist/`. Set `MAKENSIS` to the full compiler path if it is outside `PATH`. The Windows smoke test installs the package, launches the installed executable, verifies downloaded stems from all three modes, and uninstalls the program. Run it on a clean test account:
 
 ```text
-python windows/smoke.py --installer dist/Blacktable-Studio-0.1.1-Windows-x64-Setup.exe --ai
+python windows/smoke.py --installer dist/Blacktable-Studio-0.1.2-Windows-x64-Setup.exe --ai
 ```
 
 The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).

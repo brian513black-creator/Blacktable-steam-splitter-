@@ -351,7 +351,8 @@ button:disabled {
 }
 
 #status:empty { display: none; }
-#status { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+#status, #connection { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+#jobs[inert] { opacity: .55; }
 .queue { margin-top: 16px; }
 
 .queue-heading,

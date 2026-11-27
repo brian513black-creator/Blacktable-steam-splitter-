@@ -11,7 +11,7 @@ from zipfile import ZipFile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 PYTHON_URL = "https://api.nuget.org/v3-flatcontainer/python/3.13.17/python.3.13.17.nupkg"
 FFMPEG_RELEASE = "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-26-12-56"
 FFMPEG_PACKAGE = "ffmpeg-n8.1.3-41-ga8029b6528-win64-lgpl-shared-8.1"
@@ -27,14 +27,21 @@ def run(*command, **kwargs):
     subprocess.run(command, check=True, **kwargs)
 
 
+def file_sha256(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def download(url, target, sha256):
-    if not target.exists():
+    if target.is_file() and file_sha256(target) == sha256:
+        return target
+    with tempfile.TemporaryDirectory(prefix=".blacktable-download-", dir=target.parent) as directory:
+        staged = Path(directory) / target.name
         run("curl", "--fail", "--silent", "--show-error", "--location", "--retry", "2",
-            "--output", target, url)
-    with target.open("rb") as stream:
-        actual = hashlib.file_digest(stream, "sha256").hexdigest()
-    if actual != sha256:
-        raise ValueError(f"Checksum mismatch for {target}. Remove it to download it again.")
+            "--output", staged, url)
+        if file_sha256(staged) != sha256:
+            raise ValueError(f"Checksum mismatch for {target.name}. The download was discarded.")
+        staged.replace(target)
     return target
 
 
@@ -94,12 +101,15 @@ def main():
             raise ValueError("Installer version must contain three numbers.")
         makensis = os.environ.get("MAKENSIS", "makensis")
         output = dist / f"Blacktable-Studio-{VERSION}-Windows-x64-Setup.exe"
+        staged_output = Path(temporary) / output.name
         define = "/D" if os.name == "nt" else "-D"
-        run(makensis, f"{define}OUTPUT={output}", f"{define}PAYLOAD={payload}",
+        run(makensis, f"{define}OUTPUT={staged_output}", f"{define}PAYLOAD={payload}",
             f"{define}VERSION={VERSION}", "installer.nsi", cwd=HERE)
-    with output.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    output.with_suffix(".exe.sha256").write_text(f"{digest}  {output.name}\n", encoding="ascii")
+        digest = file_sha256(staged_output)
+        staged_checksum = staged_output.with_suffix(".exe.sha256")
+        staged_checksum.write_text(f"{digest}  {output.name}\n", encoding="ascii")
+        staged_output.replace(output)
+        staged_checksum.replace(output.with_suffix(".exe.sha256"))
     print(output)
 
 

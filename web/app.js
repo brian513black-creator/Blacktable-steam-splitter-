@@ -7,6 +7,7 @@ const preview = document.querySelector("#preview");
 const submit = document.querySelector("#submit");
 const submitLabel = document.querySelector("#submit-label");
 const status = document.querySelector("#status");
+const connection = document.querySelector("#connection");
 const jobs = document.querySelector("#jobs");
 const emptyJobs = document.querySelector("#empty-jobs");
 const count = document.querySelector("#count");
@@ -17,8 +18,22 @@ const descriptions = {
 };
 let chosen = [];
 let uploading = false;
+let connected = true;
 let lastJobs = "";
 const rows = new Map();
+const uploadIds = new WeakMap();
+
+function updateSubmit() {
+  submit.disabled = !connected || uploading || chosen.length === 0;
+}
+
+function setConnected(value) {
+  if (connected === value) return;
+  connected = value;
+  connection.hidden = value;
+  jobs.inert = !value;
+  updateSubmit();
+}
 
 function showFiles(next) {
   chosen = next;
@@ -28,7 +43,20 @@ function showFiles(next) {
     item.textContent = file.name;
     selection.append(item);
   }
-  submit.disabled = uploading || chosen.length === 0;
+  updateSubmit();
+}
+
+function uploadId(file, settings) {
+  let ids = uploadIds.get(file);
+  if (!ids) {
+    ids = new Map();
+    uploadIds.set(file, ids);
+  }
+  const key = settings.mode + ":" + settings.preview;
+  if (!ids.has(key)) {
+    ids.set(key, crypto.randomUUID().replaceAll("-", ""));
+  }
+  return ids.get(key);
 }
 
 function download(label, url, name) {
@@ -84,10 +112,16 @@ function render(job) {
 
 async function refresh() {
   try {
-    const response = await fetch("/api/jobs");
-    if (!response.ok) return;
+    const response = await fetch("/api/jobs", {signal: AbortSignal.timeout(5000)});
+    if (!response.ok) {
+      setConnected(false);
+      return;
+    }
     const data = await response.text();
-    if (data === lastJobs) return;
+    if (data === lastJobs) {
+      setConnected(true);
+      return;
+    }
     const list = JSON.parse(data);
     emptyJobs.hidden = list.length > 0;
     count.textContent = list.length + (list.length === 1 ? " job" : " jobs");
@@ -107,8 +141,9 @@ async function refresh() {
       if (!current.has(row)) row.remove();
     }
     lastJobs = data;
+    setConnected(true);
   } catch {
-    // Polling resumes automatically when the local server responds.
+    setConnected(false);
   }
 }
 
@@ -146,11 +181,13 @@ submit.addEventListener("click", async () => {
         method: "POST",
         headers: {
           "X-Blacktable": "upload", "X-File-Name": encodeURIComponent(file.name),
-          "X-Split-Mode": settings.mode, "X-Preview": settings.preview
+          "X-Split-Mode": settings.mode, "X-Preview": settings.preview,
+          "X-Job-Id": uploadId(file, settings)
         },
         body: file
       });
       if (!response.ok) throw new Error((await response.json()).error || "Upload failed.");
+      uploadIds.delete(file);
     } catch (error) {
       failed.push(file);
       messages.push(file.name + " — " + error.message);

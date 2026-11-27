@@ -10,6 +10,30 @@ SetCompressor /SOLID zlib
 
 !define PRODUCT "Blacktable Studio by Brian"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\BlacktableStudio"
+; Match DESKTOP_MUTEX in app.py.
+!define RUNTIME_MUTEX "Local\BlacktableStudioWorkstation"
+Var RuntimeGuard
+
+!macro AcquireRuntimeGuard
+  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${RUNTIME_MUTEX}") p.r0 ?e'
+  Pop $1
+  ${If} $0 == 0
+    MessageBox MB_ICONSTOP|MB_OK "Blacktable setup could not check the status of the running app." /SD IDOK
+    SetErrorLevel 1
+    Quit
+  ${EndIf}
+  ${If} $1 == 183
+    System::Call 'kernel32::CloseHandle(p r0)'
+    MessageBox MB_ICONSTOP|MB_OK "Close Blacktable Studio and try again." /SD IDOK
+    SetErrorLevel 1
+    Quit
+  ${EndIf}
+  StrCpy $RuntimeGuard $0
+!macroend
+
+!macro ReleaseRuntimeGuard
+  System::Call 'kernel32::CloseHandle(p $RuntimeGuard)'
+!macroend
 
 Name "${PRODUCT}"
 OutFile "${OUTPUT}"
@@ -44,6 +68,7 @@ Function .onInit
 FunctionEnd
 
 Section "Install"
+  !insertmacro AcquireRuntimeGuard
   SetOutPath "$INSTDIR"
   File /r "${PAYLOAD}\*"
   CreateShortcut "$SMPROGRAMS\Blacktable Studio.lnk" "$INSTDIR\Blacktable Studio.exe"
@@ -56,9 +81,12 @@ Section "Install"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
+  !insertmacro ReleaseRuntimeGuard
 SectionEnd
 
 Section "Uninstall"
+  !insertmacro AcquireRuntimeGuard
+  SetOutPath "$TEMP"
   Delete "$SMPROGRAMS\Blacktable Studio.lnk"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   RMDir /r "$INSTDIR\runtime"
@@ -69,4 +97,5 @@ Section "Uninstall"
   Delete "$INSTDIR\Blacktable Studio.exe"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
+  !insertmacro ReleaseRuntimeGuard
 SectionEnd
