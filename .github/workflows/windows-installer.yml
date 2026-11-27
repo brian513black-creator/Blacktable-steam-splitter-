@@ -1,0 +1,53 @@
+name: Windows installer
+on:
+  push:
+    branches: [main, 'release/**']
+    paths:
+      - app.py
+      - 'web/**'
+      - 'windows/**'
+      - '.github/workflows/windows-installer.yml'
+  pull_request:
+    paths:
+      - app.py
+      - 'web/**'
+      - 'windows/**'
+      - '.github/workflows/windows-installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install build tools
+        run: |
+          choco install nsis --version=3.11 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install ziglang==0.15.2
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $env:MAKENSIS = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          python windows/build.py
+      - name: Install, launch, test all split modes and uninstall
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist -Filter "*-Setup.exe"
+          python windows/smoke.py --installer $setup.FullName --ai
+      - name: Upload the tested, unsigned installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blacktable-Studio-Windows-x64
+          path: |
+            dist/*-Setup.exe
+            dist/*-Setup.exe.sha256
+          if-no-files-found: error
+          compression-level: 0

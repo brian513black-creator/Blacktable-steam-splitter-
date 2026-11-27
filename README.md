@@ -1,15 +1,16 @@
 # Blacktable Studio by Brian
 
-Blacktable is a local audio stem splitter targeting Windows 10 and 11 x64. Add a batch of audio files, split them one at a time in the background, audition each stem, and save individual WAV files or a ZIP per track.
+Blacktable is a local audio stem splitter for Windows 11 x64. Add a batch of audio files, split them one at a time in the background, audition each stem, and save individual WAV files or a ZIP per track.
 
-## Start on Windows
+## Install on Windows 11
 
-1. Install 64-bit Python 3.12 with the Windows Python launcher enabled.
-2. Install FFmpeg and ffprobe. With Windows Package Manager, run `winget install --id Gyan.FFmpeg --exact`. Open a new terminal and check `ffmpeg -version` and `ffprobe -version`.
-3. Extract the project to a writable folder and double-click **Start-Blacktable.cmd**. The launcher installs the Python dependencies on first use and opens the local workstation in your default browser.
-4. Select files, choose a separation mode, and click **Split audio**. Download the output before closing the launcher.
+1. Run **Blacktable-Studio-0.1.0-Windows-x64-Setup.exe**.
+2. Open **Blacktable Studio** from Start. The installed `Blacktable Studio.exe` opens the workstation in your default browser.
+3. Select your audio files, choose a separation mode, and click **Split audio**. Download the stems before closing the Blacktable window.
 
-The first AI split downloads the official HTDemucs model into `.models`. Audio is processed on the device. Once the dependencies and model are present, splitting works offline. Each file can be up to 250 MiB. Files and outputs are temporary and the queue holds up to 100 jobs per session.
+The installer contains its own Python, FFmpeg, and AI runtime. The first AI split downloads the official HTDemucs model into `%LOCALAPPDATA%\Blacktable Studio\models`. Audio is processed on the device. Once the model is cached, splitting works offline. If the AI engine reports a missing Windows library, install the latest [Microsoft Visual C++ Redistributable (x64)](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) and retry. Diagnostics are in `%LOCALAPPDATA%\Blacktable Studio\blacktable.log`.
+
+Each file can be up to 250 MiB. Files and outputs are temporary and the queue holds up to 100 jobs per session.
 
 ## Modes
 
@@ -31,6 +32,19 @@ The interface bundles Instrument Serif under the [SIL Open Font License](web/ins
 
 [Demucs](https://github.com/adefossez/demucs) provides high-quality stem modes through a command-line workflow. [Ultimate Vocal Remover](https://github.com/Anjok07/ultimatevocalremovergui) adds a desktop interface with extensive model and ensemble controls. Blacktable uses Demucs under the hood and emphasizes a short workflow with one shared setting for a batch, a 30-second audition option, inline playback, and ZIP export on each job.
 
-## Windows release status
+## Build and verify a Windows installer
 
-This is a source build for development and validation. Before sale, validate on clean Windows x64 machines, measure CPU speed and separation quality with representative licensed tracks, and create and test a signed installer. Review third-party licenses and distribution terms for the actual bundled components and model weights, and include any required notices. The launcher downloads components from their upstream sources during setup. No customer installer or payment system is included.
+From the repository root, use Python 3.12 or 3.13, curl, and NSIS 3.11:
+
+```text
+python -m pip install ziglang==0.15.2
+python windows/build.py
+```
+
+The build produces the setup executable and its SHA-256 checksum in `dist/`. Set `MAKENSIS` to the full compiler path if it is outside `PATH`. The Windows smoke test installs the package, launches the installed executable, verifies downloaded stems from all three modes, and uninstalls the program. Run it on a clean test account:
+
+```text
+python windows/smoke.py --installer dist/Blacktable-Studio-0.1.0-Windows-x64-Setup.exe --ai
+```
+
+The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies and model distribution terms, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).

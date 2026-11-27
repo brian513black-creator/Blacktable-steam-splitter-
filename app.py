@@ -10,7 +10,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from threading import Lock
+from threading import Lock, Thread
+import traceback
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
 import webbrowser
@@ -34,13 +35,18 @@ LOCK = Lock()
 
 
 def run(*args):
-    result = subprocess.run(args, capture_output=True, text=True, errors="replace", timeout=3600)
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    result = subprocess.run(args, capture_output=True, text=True, errors="replace",
+                            timeout=3600, creationflags=flags)
     if result.returncode:
         print(result.stderr[-4000:], file=sys.stderr)
-        if args[:3] == (sys.executable, "-m", "demucs") and "Downloading:" in result.stdout:
-            if "URLError" in result.stderr or "HTTPError" in result.stderr:
+        if args[:3] == (sys.executable, "-m", "demucs"):
+            if "Downloading:" in result.stdout and ("URLError" in result.stderr or "HTTPError" in result.stderr):
                 raise RuntimeError("The AI model could not download. Check your connection "
                                    "to dl.fbaipublicfiles.com and try again.")
+            if sys.platform == "win32" and "WinError 126" in result.stderr:
+                raise RuntimeError("The AI engine could not load a Windows library. Install Microsoft's "
+                                   "latest Visual C++ Redistributable (x64) and retry.")
         raise RuntimeError("Processing failed. Check the launcher console for details.")
 
 
@@ -220,23 +226,35 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({"id": job_id}, 202)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--open", action="store_true", help="Open the workstation in your browser.")
-    args = parser.parse_args()
+def serve(args):
+    bundled_ffmpeg = ROOT / "ffmpeg" / "bin"
+    if bundled_ffmpeg.is_dir():
+        os.environ["PATH"] = str(bundled_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
     if not all(shutil.which(tool) for tool in ("ffmpeg", "ffprobe")):
-        parser.error("FFmpeg and ffprobe are required and must be on PATH.")
+        raise RuntimeError("FFmpeg and ffprobe are required and must be on PATH.")
     os.environ.setdefault("TORCH_HOME", str(ROOT / ".models"))
     os.environ.setdefault("OMP_NUM_THREADS", "4")
     os.environ.setdefault("MKL_NUM_THREADS", "4")
-    with tempfile.TemporaryDirectory(prefix="blacktable-") as storage:
+    with tempfile.TemporaryDirectory(prefix="blacktable-", ignore_cleanup_errors=True) as storage:
         with ThreadPoolExecutor(max_workers=1) as worker:
             with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
                 server.storage = Path(storage)
                 server.worker = worker
                 url = f"http://127.0.0.1:{server.server_port}"
                 print(f"Blacktable Studio by Brian is running at {url}", flush=True)
+                if args.desktop:
+                    thread = Thread(target=server.serve_forever, daemon=True)
+                    thread.start()
+                    try:
+                        if not webbrowser.open(url):
+                            message_box(f"Open this address in your browser:\n\n{url}")
+                        message_box("Blacktable is running in your browser.\n\n"
+                                    "Save your stems, then click OK to close Blacktable.")
+                    finally:
+                        server.shutdown()
+                        thread.join()
+                        worker.shutdown(cancel_futures=True)
+                    return
                 if args.open:
                     webbrowser.open(url)
                 try:
@@ -245,5 +263,43 @@ def main():
                     worker.shutdown(cancel_futures=True)
 
 
+def message_box(text, flags=0x40):
+    from ctypes import windll
+
+    windll.user32.MessageBoxW(None, text, "Blacktable Studio by Brian", flags | 0x40000)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--open", action="store_true", help="Open the workstation in your browser.")
+    parser.add_argument("--desktop", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    if not args.desktop:
+        serve(args)
+        return 0
+    if sys.platform != "win32":
+        parser.error("Desktop mode requires Windows.")
+
+    try:
+        data = Path(os.environ["LOCALAPPDATA"]) / "Blacktable Studio"
+        data.mkdir(parents=True, exist_ok=True)
+        os.environ["TORCH_HOME"] = str(data / "models")
+        with (data / "blacktable.log").open("w", encoding="utf-8", buffering=1) as log:
+            sys.stdout = sys.stderr = log
+            try:
+                serve(args)
+            except Exception:
+                traceback.print_exc()
+                raise
+            finally:
+                sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+    except Exception:
+        message_box("Blacktable could not start. Check blacktable.log in "
+                    "%LOCALAPPDATA%\\Blacktable Studio for details.", flags=0x10)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
