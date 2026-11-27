@@ -47,4 +47,6 @@ The build produces the setup executable and its SHA-256 checksum in `dist/`. Set
 python windows/smoke.py --installer dist/Blacktable-Studio-0.1.0-Windows-x64-Setup.exe --ai
 ```
 
-The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies and model distribution terms, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).
+The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).
+
+Commercial use of the AI modes also needs clearance for the exact checkpoint. The Demucs project licenses its code under MIT and describes the [license of the pretrained weights as unclear](https://github.com/adefossez/demucs#license). Verify commercial rights for HTDemucs or use a checkpoint with explicit commercial terms before selling the AI modes.
