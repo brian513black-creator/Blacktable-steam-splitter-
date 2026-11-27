@@ -385,6 +385,7 @@ button:disabled {
   text-align: center;
 }
 
+.empty[hidden] { display: none; }
 .empty p { margin: 0; }
 
 .empty-icon {

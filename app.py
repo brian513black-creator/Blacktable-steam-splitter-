@@ -14,13 +14,18 @@ from threading import Lock, Thread
 import traceback
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
+import wave
 import webbrowser
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parent
 MAX_BYTES = 250 * 1024 * 1024
 MAX_JOBS = 100
-MODES = {"quick", "four", "two"}
+STEMS = {
+    "quick": {"center.wav", "sides.wav"},
+    "four": {"vocals.wav", "drums.wav", "bass.wav", "other.wav"},
+    "two": {"vocals.wav", "no_vocals.wav"},
+}
 AUDIO_FORMATS = "aac,ac3,aiff,ape,asf,flac,matroska,mov,mp3,ogg,w64,wav,webm"
 ASSETS = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -32,6 +37,7 @@ ASSETS = {
 }
 JOBS = {}
 LOCK = Lock()
+CHECK_LOG = "Check the Blacktable log or launcher console for details."
 
 
 def run(*args):
@@ -47,7 +53,7 @@ def run(*args):
             if sys.platform == "win32" and "WinError 126" in result.stderr:
                 raise RuntimeError("The AI engine could not load a Windows library. Install Microsoft's "
                                    "latest Visual C++ Redistributable (x64) and retry.")
-        raise RuntimeError("Processing failed. Check the launcher console for details.")
+        raise RuntimeError(f"Processing failed. {CHECK_LOG}")
 
 
 def process(job, folder, source):
@@ -58,7 +64,13 @@ def process(job, folder, source):
         limit = ("-t", "30") if job["preview"] else ()
         run("ffmpeg", "-nostdin", "-v", "error", "-protocol_whitelist", "file",
             "-format_whitelist", AUDIO_FORMATS, "-i", str(source), "-map", "0:a:0",
-            *limit, "-ar", "44100", "-ac", "2", str(mix))
+            *limit, "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", str(mix))
+        try:
+            with wave.open(str(mix), "rb") as audio:
+                if not audio.getnframes():
+                    raise RuntimeError("This file contains no audio samples.")
+        except (wave.Error, EOFError) as error:
+            raise RuntimeError("The decoded audio could not be read.") from error
         if job["mode"] == "quick":
             channels = {
                 "center": "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1",
@@ -74,22 +86,26 @@ def process(job, folder, source):
             for stem in (folder / "htdemucs" / "mix").glob("*.wav"):
                 stem.replace(folder / stem.name)
         stems = sorted(file.name for file in folder.glob("*.wav") if file != mix)
-        if len(stems) != (4 if job["mode"] == "four" else 2):
+        if set(stems) != STEMS[job["mode"]]:
             raise RuntimeError("The separator returned an incomplete set of stems.")
         with ZipFile(folder / "stems.zip", "w") as archive:
             for stem in stems:
                 archive.write(folder / stem, stem)
-        with LOCK:
-            job.update(status="done", stems=stems)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+        shutil.rmtree(folder, ignore_errors=True)
         with LOCK:
             job.update(status="failed", error=str(error) if isinstance(error, RuntimeError)
-                       else "Could not finish processing. Check the launcher console.")
+                       else f"Could not finish processing. {CHECK_LOG}")
         if not isinstance(error, RuntimeError):
             print(error, file=sys.stderr)
-    finally:
-        source.unlink(missing_ok=True)
-        (folder / "mix.wav").unlink(missing_ok=True)
+    else:
+        for temporary in (source, mix):
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError as error:
+                print(error, file=sys.stderr)
+        with LOCK:
+            job.update(status="done", stems=stems)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -173,6 +189,8 @@ class Handler(BaseHTTPRequestHandler):
                 file = self.server.storage / job_id / filename
                 try:
                     self.send_file(file)
+                except FileNotFoundError:
+                    self.send_error(404)
                 except (BrokenPipeError, ConnectionResetError):
                     pass
                 return
@@ -189,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             size = 0
         mode = self.headers.get("X-Split-Mode")
-        if not 0 < size <= MAX_BYTES or mode not in MODES:
+        if not 0 < size <= MAX_BYTES or mode not in STEMS:
             self.send_json({"error": "Choose an audio file up to 250 MB and a split mode."}, 400)
             return
         job_id = uuid4().hex
@@ -215,15 +233,23 @@ class Handler(BaseHTTPRequestHandler):
                     stream.write(block)
                     remaining -= len(block)
         except OSError:
-            shutil.rmtree(folder, ignore_errors=True)
-            with LOCK:
-                JOBS.pop(job_id, None)
+            self.discard_upload(job_id, folder)
             self.send_json({"error": "The upload could not be saved."}, 400)
             return
         with LOCK:
             job["status"] = "queued"
-        self.server.worker.submit(process, job, folder, source)
+        try:
+            self.server.worker.submit(process, job, folder, source)
+        except RuntimeError:
+            self.discard_upload(job_id, folder)
+            self.send_json({"error": "Blacktable is closing. Open it again to start a new split."}, 503)
+            return
         self.send_json({"id": job_id}, 202)
+
+    def discard_upload(self, job_id, folder):
+        shutil.rmtree(folder, ignore_errors=True)
+        with LOCK:
+            JOBS.pop(job_id, None)
 
 
 def serve(args):

@@ -4,7 +4,7 @@ Blacktable is a local audio stem splitter for Windows 11 x64. Add a batch of aud
 
 ## Install on Windows 11
 
-1. Run **Blacktable-Studio-0.1.0-Windows-x64-Setup.exe**.
+1. Run **Blacktable-Studio-0.1.1-Windows-x64-Setup.exe**.
 2. Open **Blacktable Studio** from Start. The installed `Blacktable Studio.exe` opens the workstation in your default browser.
 3. Select your audio files, choose a separation mode, and click **Split audio**. Download the stems before closing the Blacktable window.
 
@@ -20,7 +20,7 @@ Each file can be up to 250 MiB. Files and outputs are temporary and the queue ho
 | Vocals + instrumental | Vocals and accompaniment | Karaoke and vocal sampling |
 | Quick center + sides | Center and stereo sides | Fast stereo inspection. Center may include vocals, bass, kick, or any other centered sound. |
 
-Use **First 30 seconds only** to audition a shorter split before processing a full track. CPU inference speed varies by machine and track. The two AI modes use the same separation model.
+**Split full tracks** processes each song from start to finish by default. Turn on **30-second preview** to audition the start of a track. CPU inference speed varies by machine and track. The two AI modes use the same separation model.
 
 ## Develop on Linux
 
@@ -44,7 +44,7 @@ python windows/build.py
 The build produces the setup executable and its SHA-256 checksum in `dist/`. Set `MAKENSIS` to the full compiler path if it is outside `PATH`. The Windows smoke test installs the package, launches the installed executable, verifies downloaded stems from all three modes, and uninstalls the program. Run it on a clean test account:
 
 ```text
-python windows/smoke.py --installer dist/Blacktable-Studio-0.1.0-Windows-x64-Setup.exe --ai
+python windows/smoke.py --installer dist/Blacktable-Studio-0.1.1-Windows-x64-Setup.exe --ai
 ```
 
 The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).

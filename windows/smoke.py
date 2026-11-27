@@ -29,39 +29,59 @@ def wait_for(check, timeout):
     raise TimeoutError(f"Timed out after {timeout} seconds.")
 
 
-def test_audio(url, modes):
-    assert b"Blacktable Studio by Brian" in request(url)
+def wav_fixture(seconds):
     sample = io.BytesIO()
+    tone = b"".join(struct.pack("<hh", int(10000 * math.sin(i / 20)),
+                                int(7000 * math.sin(i / 32))) for i in range(44100))
     with wave.open(sample, "wb") as wav:
         wav.setparams((2, 2, 44100, 0, "NONE", "not compressed"))
-        wav.writeframes(b"".join(struct.pack("<hh", int(10000 * math.sin(i / 20)),
-                                            int(7000 * math.sin(i / 32))) for i in range(44100)))
+        for _ in range(seconds):
+            wav.writeframesraw(tone)
+        wav.writeframes(b"")
+    return sample.getvalue()
 
-    for mode in modes:
+
+def split(url, sample, mode, preview=False):
+    headers = {"X-Blacktable": "upload", "X-Split-Mode": mode, "X-File-Name": "Test%20track.wav"}
+    if preview:
+        headers["X-Preview"] = "1"
+    submitted = json.loads(request(f"{url}/api/jobs", data=sample, headers=headers))
+
+    def completed():
+        for job in json.loads(request(f"{url}/api/jobs")):
+            if job["id"] == submitted["id"] and job["status"] in {"done", "failed"}:
+                return job
+        return None
+
+    return wait_for(completed, 600)
+
+
+def test_audio(url, modes):
+    assert b"Blacktable Studio by Brian" in request(url)
+    empty = split(url, wav_fixture(0), "quick")
+    assert empty["status"] == "failed" and "no audio samples" in empty["error"], empty
+    print("Empty audio correctly rejected", flush=True)
+
+    duration = 180
+    sample = wav_fixture(duration)
+    for mode, preview in [(mode, False) for mode in modes] + [("quick", True)]:
         stems = {
             "quick": {"center.wav", "sides.wav"},
             "four": {"vocals.wav", "drums.wav", "bass.wav", "other.wav"},
             "two": {"vocals.wav", "no_vocals.wav"},
         }[mode]
-        headers = {"X-Blacktable": "upload", "X-Split-Mode": mode, "X-File-Name": "Test%20track.wav"}
-        submitted = json.loads(request(f"{url}/api/jobs", data=sample.getvalue(), headers=headers))
-
-        def completed():
-            for job in json.loads(request(f"{url}/api/jobs")):
-                if job["id"] == submitted["id"] and job["status"] in {"done", "failed"}:
-                    return job
-            return None
-
-        result = wait_for(completed, 240)
+        result = split(url, sample, mode, preview)
         assert result["status"] == "done", result
+        assert result["preview"] == preview, result
         assert set(result["stems"]) == stems, result
+        seconds = 30 if preview else duration
         archive = request(f"{url}/files/{result['id']}/stems.zip")
         with ZipFile(io.BytesIO(archive)) as zipped:
             assert set(zipped.namelist()) == stems
             for stem in stems:
                 with wave.open(io.BytesIO(zipped.read(stem)), "rb") as wav:
-                    assert (wav.getnchannels(), wav.getframerate(), wav.getnframes()) == (2, 44100, 44100)
-        print(f"{mode} passed", flush=True)
+                    assert (wav.getnchannels(), wav.getframerate(), wav.getnframes()) == (2, 44100, 44100 * seconds)
+        print(f"{mode} passed with {seconds}-second stems", flush=True)
 
 
 def test_installer(installer, modes):

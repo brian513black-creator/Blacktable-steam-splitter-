@@ -50,19 +50,18 @@
           <option value="quick">Quick center + sides</option>
         </select>
         <p id="details"></p>
-        <label class="check"><input id="preview" type="checkbox"> First 30 seconds only</label>
-        <button id="submit" disabled>Split audio <span aria-hidden="true">→</span></button>
+        <label class="check"><input id="preview" type="checkbox"> 30-second preview</label>
+        <button id="submit" disabled><span id="submit-label">Split full tracks</span> <span aria-hidden="true">→</span></button>
       </section>
     </div>
     <p id="status" role="status"></p>
     <section class="panel queue">
       <div class="queue-heading"><h2>Job queue</h2><span id="count"></span></div>
-      <div id="jobs">
-        <div class="empty">
-          <span class="empty-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-          <p>Your split tracks will appear here.</p>
-        </div>
+      <div id="empty-jobs" class="empty">
+        <span class="empty-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        <p>Your split tracks will appear here.</p>
       </div>
+      <div id="jobs"></div>
     </section>
     <footer>Download your stems before closing Blacktable. Jobs are kept for this session.</footer>
   </main>

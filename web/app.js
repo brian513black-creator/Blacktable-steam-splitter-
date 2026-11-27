@@ -5,8 +5,10 @@ const mode = document.querySelector("#mode");
 const details = document.querySelector("#details");
 const preview = document.querySelector("#preview");
 const submit = document.querySelector("#submit");
+const submitLabel = document.querySelector("#submit-label");
 const status = document.querySelector("#status");
 const jobs = document.querySelector("#jobs");
+const emptyJobs = document.querySelector("#empty-jobs");
 const count = document.querySelector("#count");
 const descriptions = {
   four: "AI separation into vocals, drums, bass, and other instruments.",
@@ -86,8 +88,8 @@ async function refresh() {
     if (!response.ok) return;
     const data = await response.text();
     if (data === lastJobs) return;
-    lastJobs = data;
     const list = JSON.parse(data);
+    emptyJobs.hidden = list.length > 0;
     count.textContent = list.length + (list.length === 1 ? " job" : " jobs");
     const present = new Set(list.map(job => job.id));
     for (const [id, row] of rows) {
@@ -96,8 +98,6 @@ async function refresh() {
         rows.delete(id);
       }
     }
-    if (!list.length) return;
-    jobs.querySelector(".empty")?.remove();
     list.forEach((job, index) => {
       const row = render(job);
       if (jobs.children[index] !== row) jobs.insertBefore(row, jobs.children[index] || null);
@@ -106,6 +106,7 @@ async function refresh() {
     for (const row of [...jobs.children]) {
       if (!current.has(row)) row.remove();
     }
+    lastJobs = data;
   } catch {
     // Polling resumes automatically when the local server responds.
   }
@@ -114,6 +115,11 @@ async function refresh() {
 files.addEventListener("change", () => showFiles([...files.files]));
 mode.addEventListener("change", () => { details.textContent = descriptions[mode.value]; });
 details.textContent = descriptions[mode.value];
+function updateSubmitLabel() {
+  submitLabel.textContent = preview.checked ? "Split 30-second preview" : "Split full tracks";
+}
+preview.addEventListener("change", updateSubmitLabel);
+updateSubmitLabel();
 drop.addEventListener("dragover", event => {
   event.preventDefault();
   drop.classList.add("active");

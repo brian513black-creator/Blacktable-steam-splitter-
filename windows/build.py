@@ -11,7 +11,7 @@ from zipfile import ZipFile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 PYTHON_URL = "https://api.nuget.org/v3-flatcontainer/python/3.13.17/python.3.13.17.nupkg"
 FFMPEG_RELEASE = "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-26-12-56"
 FFMPEG_PACKAGE = "ffmpeg-n8.1.3-41-ga8029b6528-win64-lgpl-shared-8.1"
