@@ -266,7 +266,7 @@ def serve(args):
 def message_box(text, flags=0x40):
     from ctypes import windll
 
-    windll.user32.MessageBoxW(None, text, "Blacktable Studio by Brian", flags | 0x40000)
+    windll.user32.MessageBoxW(None, text, "Blacktable Studio by Brian", flags)
 
 
 def main():

@@ -1,7 +1,7 @@
 Unicode true
 ManifestDPIAware true
 RequestExecutionLevel user
-SetCompressor /SOLID lzma
+SetCompressor /SOLID zlib
 
 !include "MUI2.nsh"
 !include "WinVer.nsh"
