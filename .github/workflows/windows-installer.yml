@@ -4,12 +4,16 @@ on:
     branches: [main, 'release/**']
     paths:
       - app.py
+      - spleeter_engine.py
+      - 'licenses/**'
       - 'web/**'
       - 'windows/**'
       - '.github/workflows/windows-installer.yml'
   pull_request:
     paths:
       - app.py
+      - spleeter_engine.py
+      - 'licenses/**'
       - 'web/**'
       - 'windows/**'
       - '.github/workflows/windows-installer.yml'
@@ -19,26 +23,52 @@ permissions:
   contents: read
 
 jobs:
-  installer:
-    runs-on: windows-2025
-    timeout-minutes: 35
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install build tools
+      - name: Install Linux cross-build tools
         run: |
-          choco install nsis --version=3.11 --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          sudo apt-get update -qq
+          sudo apt-get install -y nsis
           python -m pip install ziglang==0.15.2
-      - name: Build installer
-        shell: pwsh
+      - name: Cross-build the Windows installer
+        run: python windows/build.py
+      - name: Transfer the installer to the Windows test job
+        uses: actions/upload-artifact@v4
+        with:
+          name: blacktable-windows-x64-candidate
+          path: |
+            dist/*-Setup.exe
+            dist/*-Setup.exe.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  installer:
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: blacktable-windows-x64-candidate
+          path: dist
+      - name: Verify the installer checksum
         run: |
-          $env:MAKENSIS = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
-          python windows/build.py
+          $setup = Get-ChildItem dist -Filter "*-Setup.exe"
+          $expected = ((Get-Content "$($setup.FullName).sha256" -Raw).Trim() -split '\s+')[0]
+          $actual = (Get-FileHash -LiteralPath $setup.FullName -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw "Installer SHA-256 did not match the build artifact" }
       - name: Install, launch, test all split modes and uninstall
-        shell: pwsh
         run: |
           $setup = Get-ChildItem dist -Filter "*-Setup.exe"
           python windows/smoke.py --installer $setup.FullName --ai
