@@ -15,7 +15,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR cmd, int show)
         goto failed;
     *separator = L'\0';
 
-    if (swprintf(python, ARRAYSIZE(python), L"%ls\\runtime\\python.exe", directory) < 0 ||
+    if (swprintf(python, ARRAYSIZE(python), L"%ls\\runtime-spleeter\\python.exe", directory) < 0 ||
         swprintf(command, ARRAYSIZE(command),
                  L"\"%ls\" -I \"%ls\\app.py\" --desktop --port 0", python, directory) < 0)
         goto failed;

@@ -11,16 +11,10 @@ from zipfile import ZipFile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 PYTHON_URL = "https://api.nuget.org/v3-flatcontainer/python/3.13.17/python.3.13.17.nupkg"
 FFMPEG_RELEASE = "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-26-12-56"
 FFMPEG_PACKAGE = "ffmpeg-n8.1.3-41-ga8029b6528-win64-lgpl-shared-8.1"
-WHEELS = (
-    "https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp313-cp313-win_amd64.whl"
-    "#sha256=e1ee1b2346ade3ea90306dfbec7e8ff17bc220d344109d189ae09078333b0856",
-    "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.8.0%2Bcpu-cp313-cp313-win_amd64.whl"
-    "#sha256=0c2d081e24204768e636cbf05e1377c8a6964b8ed6fa3aa5092ba9af9bbc19c5",
-)
 
 
 def run(*command, **kwargs):
@@ -69,13 +63,10 @@ def main():
     ffmpeg_zip = download(f"{FFMPEG_RELEASE}/{FFMPEG_PACKAGE}.zip", cache / "ffmpeg.zip",
                           "372016b1248544b4ffc290ae41c9c57e6441bd0da32068ea18032a25b7b36e08")
     pip = (sys.executable, "-m", "pip", "--disable-pip-version-check", "--no-cache-dir")
-    wheel_dir = cache / "wheels"
-    run(*pip, "wheel", "--no-deps", "--wheel-dir", wheel_dir, "demucs==4.0.1")
-
     dist.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="blacktable-build-", dir=dist) as temporary:
         payload = Path(temporary) / "payload"
-        runtime = payload / "runtime"
+        runtime = payload / "runtime-spleeter"
         extract(python_zip, "tools/", runtime,
                 lambda path: path.parts[0] not in ("include", "libs", "Scripts")
                 and "site-packages" not in path.parts and path.name != "pythonw.exe")
@@ -84,13 +75,13 @@ def main():
                 or (path.parts[0] == "bin" and path.name != "ffplay.exe"))
         run(*pip, "install", "--platform", "win_amd64", "--python-version", "3.13",
             "--only-binary", ":all:", "--no-deps", "--no-compile",
-            "--target", runtime / "Lib" / "site-packages", "--find-links", wheel_dir,
-            "-r", HERE / "requirements.lock", *WHEELS)
-        # The Windows torch wheel also contains several GB of link-time files for developers.
-        for library in (runtime / "Lib" / "site-packages" / "torch" / "lib").glob("*.lib"):
-            library.unlink()
+            "--target", runtime / "Lib" / "site-packages", "-r", HERE / "requirements.lock")
+        engine = ROOT / "spleeter_engine.py"
+        run(sys.executable, engine, "prepare", payload / "model", cache)
         shutil.copy2(ROOT / "app.py", payload)
+        shutil.copy2(engine, payload)
         shutil.copytree(ROOT / "web", payload / "web")
+        shutil.copytree(ROOT / "licenses", payload / "licenses")
         shutil.copy2(HERE / "Third-party notices.txt", payload)
         resource = Path(temporary) / "launcher.res"
         run(sys.executable, "-m", "ziglang", "rc", "/x", "/fo", resource, "launcher.rc", cwd=HERE)

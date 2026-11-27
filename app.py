@@ -20,6 +20,7 @@ import webbrowser
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parent
+ENGINE = ROOT / "spleeter_engine.py"
 MAX_BYTES = 250 * 1024 * 1024
 MAX_JOBS = 100
 STEMS = {
@@ -57,11 +58,12 @@ def run(*args, failure_message=None):
                             timeout=3600, creationflags=flags)
     if result.returncode:
         print(result.stderr[-4000:], file=sys.stderr)
-        if args[:3] == (sys.executable, "-m", "demucs"):
-            if "Downloading:" in result.stdout and ("URLError" in result.stderr or "HTTPError" in result.stderr):
-                raise RuntimeError("The AI model could not download. Check your connection "
-                                   "to dl.fbaipublicfiles.com and try again.")
-            if sys.platform == "win32" and "WinError 126" in result.stderr:
+        if args[:2] == (sys.executable, str(ENGINE)):
+            if "checkpoint is missing or damaged" in result.stderr:
+                raise RuntimeError("The Spleeter model is missing or damaged. Run Blacktable setup again.")
+            if sys.platform == "win32" and any(
+                marker in result.stderr for marker in ("DLL load failed", "WinError 126")
+            ):
                 raise RuntimeError("The AI engine could not load a Windows library. Install Microsoft's "
                                    "latest Visual C++ Redistributable (x64) and retry.")
         raise RuntimeError(failure_message or f"Processing failed. {CHECK_LOG}")
@@ -92,11 +94,10 @@ def process(job, folder, source):
                 run("ffmpeg", "-nostdin", "-v", "error", "-i", str(mix),
                     "-af", audio_filter, str(folder / f"{name}.wav"))
         else:
-            two = ("--two-stems", "vocals") if job["mode"] == "two" else ()
-            run(sys.executable, "-m", "demucs", "-n", "htdemucs", "-d", "cpu",
-                "--shifts", "0", "--out", str(folder), *two, str(mix))
-            for stem in (folder / "htdemucs" / "mix").glob("*.wav"):
-                stem.replace(folder / stem.name)
+            model = ROOT / "model"
+            if not model.is_dir():
+                model = ROOT / ".models" / "spleeter-4stems"
+            run(sys.executable, str(ENGINE), "split", str(model), str(mix), str(folder), job["mode"])
         stems = sorted(file.name for file in folder.glob("*.wav") if file != mix)
         if set(stems) != STEMS[job["mode"]]:
             raise RuntimeError("The separator returned an incomplete set of stems.")
@@ -308,9 +309,6 @@ def serve(args):
         os.environ["PATH"] = str(bundled_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
     if not all(shutil.which(tool) for tool in ("ffmpeg", "ffprobe")):
         raise RuntimeError("FFmpeg and ffprobe are required and must be on PATH.")
-    os.environ.setdefault("TORCH_HOME", str(ROOT / ".models"))
-    os.environ.setdefault("OMP_NUM_THREADS", "4")
-    os.environ.setdefault("MKL_NUM_THREADS", "4")
     with tempfile.TemporaryDirectory(prefix="blacktable-", ignore_cleanup_errors=True) as storage:
         with ThreadPoolExecutor(max_workers=1) as worker:
             with StudioServer(("127.0.0.1", args.port), Handler) as server:
@@ -386,7 +384,6 @@ def run_desktop(args):
             return
         data = Path(os.environ["LOCALAPPDATA"]) / "Blacktable Studio"
         data.mkdir(parents=True, exist_ok=True)
-        os.environ["TORCH_HOME"] = str(data / "models")
         with (data / "blacktable.log").open("w", encoding="utf-8", buffering=1) as log:
             stdout, stderr = sys.stdout, sys.stderr
             sys.stdout = sys.stderr = log

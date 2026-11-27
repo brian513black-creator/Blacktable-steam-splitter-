@@ -83,7 +83,7 @@ def test_audio(url, modes):
 
     duration = 180
     sample = wav_fixture(duration)
-    for mode, preview in [(mode, False) for mode in modes] + [("quick", True)]:
+    for mode, preview in [(mode, preview) for preview in (False, True) for mode in modes]:
         stems = {
             "quick": {"center.wav", "sides.wav"},
             "four": {"vocals.wav", "drums.wav", "bass.wav", "other.wav"},
@@ -95,11 +95,16 @@ def test_audio(url, modes):
         assert set(result["stems"]) == stems, result
         seconds = 30 if preview else duration
         archive = request(f"{url}/files/{result['id']}/stems.zip")
+        tail_has_audio = False
         with ZipFile(io.BytesIO(archive)) as zipped:
             assert set(zipped.namelist()) == stems
             for stem in stems:
                 with wave.open(io.BytesIO(zipped.read(stem)), "rb") as wav:
                     assert (wav.getnchannels(), wav.getframerate(), wav.getnframes()) == (2, 44100, 44100 * seconds)
+                    wav.setpos(wav.getnframes() - 4096)
+                    if any(wav.readframes(4096)):
+                        tail_has_audio = True
+        assert tail_has_audio, "The test track ends in audible input, so the exported stems must retain its tail"
         stem_url = f"{url}/files/{result['id']}/{min(stems)}"
         with urlopen(Request(stem_url, headers={"Range": "bytes=0-43"}), timeout=10) as response:
             assert response.status == 206
@@ -160,7 +165,7 @@ def main():
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--installer", type=Path)
     target.add_argument("--url")
-    parser.add_argument("--ai", action="store_true", help="Run both AI modes using the official model.")
+    parser.add_argument("--ai", action="store_true", help="Run both AI modes using the bundled Spleeter checkpoint.")
     args = parser.parse_args()
     modes = ("quick", "four", "two") if args.ai else ("quick",)
     if args.installer:
