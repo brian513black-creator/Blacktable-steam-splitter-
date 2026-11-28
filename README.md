@@ -47,7 +47,7 @@ The build produces the setup executable and its SHA-256 checksum in `dist/`. Set
 python windows/smoke.py --installer dist/Blacktable-Studio-0.1.3-Windows-x64-Setup.exe --ai
 ```
 
-The installer is an unsigned release candidate. Before sale, test it on a clean Windows 11 x64 desktop, review the bundled dependencies, and sign the launcher, uninstaller, and installer with the publisher's Authenticode identity. Recalculate the published SHA-256 after signing. See the packaged [third-party notices](windows/Third-party%20notices.txt).
+The installer is an unsigned release candidate. The [release record](docs/RELEASE.md#before-commercial-distribution) lists the remaining work for a paid Microsoft Store launch, including trusted signing, hosting, the purchase flow, and a clean Windows 11 test. See the packaged [third-party notices](windows/Third-party%20notices.txt).
 
 ## Release paperwork
 

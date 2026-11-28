@@ -14,8 +14,17 @@ The [0.1.3 verification report](QA-0.1.3.md) records the expanded input-format, 
 
 ## Before commercial distribution
 
-Use the publisher's Authenticode identity to sign the application, installer, and uninstaller. Calculate the published SHA-256 after signing. Validate the signed package on a clean Windows 11 x64 desktop and retain the installer hash and test run with the release record. Preserve the bundled third-party notices and license texts when distributing the package.
+The November 28, 2026 review found version 0.1.3 ready for internal testing. The paid Microsoft Store release remains blocked by the items below.
 
-Publisher signing details and customer sales terms depend on the publisher and sales channel.
+| Release gate | Status |
+| --- | --- |
+| Functional QA and model licensing | Windows CI passed and the local installer matched its checksum. The exact Deezer Spleeter weights and MIT notice matched the release record. The package includes the bundled dependency notices, including the FFmpeg LGPL notice and source links. |
+| Trusted EXE signing | The installer and Blacktable launcher have empty embedded certificate tables. Across the installer and extracted payload, 167 of 201 PE files had empty embedded certificate tables. Embedded certificate data on the other files establishes presence only. Verify trusted signatures on all required PE files and the generated uninstaller on Windows. |
+| Hosted package | The reviewed package is a local build and the GitHub repository has no public release asset. Supply a direct, versioned HTTPS URL for the signed EXE. |
+| Paid purchase | The app has no checkout or purchase unlock. Microsoft's EXE/MSI pricing guide describes **Paid** as a one-time in-app purchase. Microsoft documents Store checkout and hosting with MSIX. Choose the package and commerce route before configuring the paid listing. |
+| Clean Windows 11 acceptance | TensorFlow imports `MSVCP140.dll` and the installer has no copy under that name. The Windows CI runner passed with its existing runtime. Verify AI splits on a clean Windows 11 x64 desktop and resolve the Visual C++ runtime dependency for the final package. |
+| Partner Center draft | The privacy policy, Properties worksheet, and certification notes are ready. The publisher still needs to confirm identity, pricing, complete listing fields and assets, and applicable customer license terms in Partner Center. Confirm the payout and tax profile if using Microsoft commerce. |
 
-For a Microsoft Store EXE submission, complete the [Partner Center worksheet](MICROSOFT-STORE.md), then provide a direct versioned HTTPS URL to the signed package.
+After signing, compute a fresh SHA-256 for the customer-facing installer and retain the clean-install evidence with the release record. Preserve the included license notices and corresponding-source access information for the bundled FFmpeg build. [Microsoft EXE/MSI package requirements](https://learn.microsoft.com/windows/apps/publish/publish-your-app/msi/app-package-requirements) · [EXE/MSI pricing](https://learn.microsoft.com/windows/apps/publish/publish-your-app/msi/set-app-pricing) · [Microsoft Store packaging and commerce](https://learn.microsoft.com/windows/apps/publish/faq/get-started-with-the-microsoft-store) · [TensorFlow Windows requirements](https://www.tensorflow.org/install/pip)
+
+Use the [Partner Center worksheet](MICROSOFT-STORE.md) for the current EXE draft.
