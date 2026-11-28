@@ -54,5 +54,6 @@ The installer is an unsigned release candidate. Before sale, test it on a clean 
 - [Model provenance and commercial license evidence](docs/MODEL-PROVENANCE.md)
 - [Spleeter MIT notice](licenses/Spleeter-MIT.txt)
 - [Third-party distribution notices](windows/Third-party%20notices.txt)
-- [Data handling](docs/PRIVACY.md)
+- [Privacy policy](docs/PRIVACY.md)
 - [Build, validation, and signing record](docs/RELEASE.md)
+- [Microsoft Store submission worksheet](docs/MICROSOFT-STORE.md)

@@ -1,0 +1,9 @@
+Blacktable Studio by Brian 0.1.3 is a Windows 11 x64 audio stem splitter. It opens a local workspace in the default browser. No login or test credentials are required. The bundled Spleeter model uses AI to separate recordings selected by the user. It does not synthesize new speech or music. Audio processing and export work offline after setup. There are no third-party drivers or Windows NT services.
+
+1. Run the setup executable with /S for silent installation, then launch Blacktable Studio from Start. Keep the Blacktable window open while testing.
+2. Add a stereo WAV or MP3 longer than 30 seconds. Choose Four stems and click Split full tracks. When the job is ready, play a stem and download its WAV or the ZIP. The four outputs are vocals, drums, bass, and other.
+3. Repeat with Vocals + instrumental to get two WAVs. Quick center + sides uses stereo channel processing and also exports two WAVs.
+4. Turn on 30-second preview and split the file again. The export should contain the first 30 seconds.
+5. Save the exports, close Blacktable, then uninstall it from Windows Settings. Setup and uninstall stop before changing files if Blacktable is already running.
+
+If the AI engine reports a missing Windows library, install Microsoft's current Visual C++ Redistributable (x64) and retry. The log is at %LOCALAPPDATA%\Blacktable Studio\blacktable.log.
